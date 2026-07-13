@@ -1,19 +1,37 @@
 # Embedded FOC Simulink Codegen
 
-面向 PMSM/BLDC 矢量控制与嵌入式 C 代码生成的 Codex Skill。它指导 Agent 从控制算法单元、闭环仿真、双闭环与启动逻辑，一直做到 ERT 代码生成、STM32/ARM 固件接口和验证交付。
+面向 PMSM/BLDC 矢量控制的 Simulink 建模与嵌入式代码生成 Skill。它可以指导 Codex 构建、修改和审查 FOC 控制模型，覆盖闭环仿真、控制器分层、多速率调度、启动与转子位置反馈，并将控制算法整理成适合 STM32/ARM Cortex-M 部署的 ERT C 代码组件。
 
-> Skill 英文名已由 `speedloop-simulink-style` 更新为 `embedded-foc-simulink-codegen`。GitHub 仓库名暂时保留，原链接仍然有效。
+## 模型展示
 
-## 这次增强了什么
+### FOC 闭环仿真系统
 
-- 不再只模仿单个 `speedloop.slx` 的外观，改为覆盖完整的 FOC 建模与部署流程。
-- 增加 Clarke/Park、反 Park、SVPWM、电流环、速度环、启动状态机的分阶段构建与验证。
-- 增加 Hall、Luenberger、SMO、EKF 等转子反馈方案的统一组件边界。
-- 明确区分仿真对象与生成代码的控制器边界，防止把电机、逆变器、Scope 或测试激励生成进 MCU 代码。
-- 把多速率模型和硬件时序关联起来：电流环对齐 PWM/ADC，速度环为电流环的整数倍。
-- 增加 ERT、C99、ARM Cortex-M、数据字典、标定量、生成接口和固件调度契约。
-- 增加只读 MATLAB 审计脚本，检查模型求解器、字典、控制器边界、Rate Transition、PI 和代码生成设置。
-- 增加数学、环路、启动、故障、代码生成、SIL/PIL 与目标机时序的分层验证清单。
+控制器与逆变器、PMSM 电机对象分离，控制输入经过数据类型转换和速率边界后进入 `FOC_Model`。
+
+[![FOC 闭环仿真系统](assets/speedloop-system-overview.png)](assets/speedloop-system-overview.png)
+
+### FOC 控制器架构
+
+速度环生成 q 轴电流参考，快速电流环完成电流调节、坐标变换和 PWM 调制，并通过复位信号协调控制状态。
+
+[![FOC 控制器架构](assets/foc-controller-architecture.png)](assets/foc-controller-architecture.png)
+
+### dq 电流环与 SVPWM
+
+快速控制链包含 Clarke、Park、dq 电流 PI、反 Park、SVPWM，以及使能、开环启动和闭环切换逻辑。
+
+[![dq 电流环与 SVPWM](assets/foc-current-loop.png)](assets/foc-current-loop.png)
+
+## 核心能力
+
+- 构建 Clarke、Park、反 Park、dq 电流 PI、速度 PI 和 SVPWM。
+- 组织电流环、速度环、模式管理、保护限幅和启动状态机。
+- 支持编码器、Hall、Luenberger、SMO、EKF 等转子位置与速度反馈方案。
+- 搭建逆变器、PMSM、负载、传感器和测试激励组成的闭环仿真平台。
+- 依据 PWM/ADC 时序设计电流环与速度环采样周期和跨速率数据传输。
+- 配置固定步长、`single` 数据、数据字典、ERT、C99 和 ARM Cortex-M 目标。
+- 定义生成代码的输入输出、标定参数、入口函数和 MCU 调度契约。
+- 审查求解器、采样时间、原子边界、Rate Transition、PI 设置、字典和代码生成风险。
 
 ## 推荐架构
 
@@ -21,7 +39,7 @@
 Simulation Harness
 ├─ Command / Fault Stimulus
 ├─ Feedback Sampling and Type Conversion
-├─ FOC_Controller or legacy FOC_Model
+├─ FOC_Controller or FOC_Model
 │  ├─ CommandAndModeManager
 │  ├─ SpeedLoop                         slow task
 │  ├─ CurrentLoop                       PWM/ADC fast task
@@ -37,86 +55,108 @@ Simulation Harness
 └─ Logging / Assertions / Scopes        simulation only
 ```
 
-控制器输入输出应当具有稳定接口，并标明名称、单位、类型、量程、采样周期、初始化和无效数据处理。已有工程依赖 `FOC_Model`、`currloop`、`speedloop`、`tABC` 等接口时，Skill 会优先保持兼容，而不是为了好看强行改名。
+控制器与仿真对象采用清晰边界：电机、逆变器、测试信号和 Scope 留在仿真平台中，生成代码的控制器只保留采样输入、FOC 算法、状态与保护逻辑以及占空比输出。
 
-## 采样周期原则
+## 建模流程
 
-参考模型中常见两组配置：
+1. 单独验证 Clarke、Park 和反 Park 的比例、相序、角度方向与往返误差。
+2. 构建 SVPWM、逆变器和 PMSM 平台，使用开环旋转电压验证相序和调制方向。
+3. 闭合 dq 电流环，加入电流限幅、电压矢量限幅和抗积分饱和。
+4. 建立使能、转子定位、开环加速、闭环切换和故障状态。
+5. 增加速度环，并把 `iq_ref` 限制在电机与逆变器允许范围内。
+6. 接入 Hall、编码器或无感观测器，并定义角度与速度有效状态。
+7. 完成定步长、多速率、数据字典和 ERT 代码生成配置。
+8. 通过模型更新、闭环场景、代码构建、SIL/PIL 和目标机时序测试逐层验证。
 
-- 教学双闭环：电流环 100 μs（10 kHz），速度环 1 ms（1 kHz）；
-- 部分无感观测器模型：控制子系统 50 μs。
+## 多速率与嵌入式执行
 
-新版 Skill 不把这些数值当成所有项目的固定答案。实际应先确定 PWM 频率、ADC 采样时刻、计算预算和环路带宽，再令：
+快速电流任务应与 PWM 更新或 ADC 采样事件同步。速度任务和其他慢速任务应为快速任务的整数倍：
 
 ```text
 Ts_speed = N × Ts_current, N 为正整数
 ```
 
-跨速率信号必须说明保持、延迟、锁存或缓冲方式，并使用确定性的 Rate Transition、函数调用子系统或调度器映射。
+每个跨速率信号都应明确保持、延迟、锁存或缓冲方式，并使用 Rate Transition、函数调用子系统、模型引用速率或固件调度器实现确定性传输。
+
+典型固件映射：
+
+| 执行入口 | 触发来源 | 主要功能 |
+| --- | --- | --- |
+| Current step | PWM/ADC 中断 | 电流采样、坐标变换、dq PI、SVPWM |
+| Speed step | 定时器或整数分频 | 速度 PI、`iq_ref` 限幅 |
+| Background | 主循环或 RTOS 低优先级任务 | 标定、通信、非关键诊断 |
 
 ## 安装
 
-仓库名目前仍是 `speedloop-simulink-style`，但安装目录要使用新的 Skill 名：
+将仓库克隆到 Codex Skills 目录：
 
 ```powershell
-git clone https://github.com/YANG985-CMD/speedloop-simulink-style.git `
+git clone https://github.com/YANG985-CMD/embedded-foc-simulink-codegen.git `
   "$HOME\.codex\skills\embedded-foc-simulink-codegen"
 ```
 
-如果本机已经安装旧版，可改名并拉取更新：
+重新启动 Codex 会话后使用：
 
-```powershell
-Rename-Item "$HOME\.codex\skills\speedloop-simulink-style" `
-  "embedded-foc-simulink-codegen"
-Set-Location "$HOME\.codex\skills\embedded-foc-simulink-codegen"
-git pull
+```text
+$embedded-foc-simulink-codegen
 ```
-
-重新启动 Codex 会话后使用 `$embedded-foc-simulink-codegen`。
 
 ## 使用示例
 
 ```text
 使用 $embedded-foc-simulink-codegen 创建一个用于 STM32G4 的 PMSM FOC 控制器，
-电流环由 PWM/ADC 中断触发，速度环为 10 倍分频，并生成 ERT C99 代码。
+电流环由 PWM/ADC 中断触发，速度环采用 10 倍分频，并生成 ERT C99 代码。
 ```
 
 ```text
-使用 $embedded-foc-simulink-codegen 审查当前 FOC_Model，检查电流环/速度环采样率、
+使用 $embedded-foc-simulink-codegen 审查当前 FOC_Model，检查采样率、
 PI 抗饱和、启动切换、数据字典、ERT 配置和生成代码接口。
 ```
 
 ```text
-使用 $embedded-foc-simulink-codegen 为现有模型增加 Hall 与 SMO 可切换的 RotorFeedback，
-保持原有 FOC_Model 端口和固件调用接口不变。
+使用 $embedded-foc-simulink-codegen 为当前模型设计 Hall 与 SMO 可切换的
+RotorFeedback，保持已有 FOC_Model 端口和固件接口不变。
 ```
 
-## 自动审计
+## 模型自动审计
 
-在 MATLAB 中执行：
+仓库提供只读 MATLAB 审计脚本：
 
 ```matlab
 addpath('scripts');
 report = audit_embedded_foc_model('D:/project/motor_control.slx');
 ```
 
-如果控制器不叫 `FOC_Controller` 或 `FOC_Model`：
+控制器使用其他名称时，可以指定边界：
 
 ```matlab
 report = audit_embedded_foc_model('motor_control.slx', ...
     'ControllerPath', 'motor_control/MotorControl');
 ```
 
-脚本只加载并更新模型，不保存文件。它输出 PASS/WARN/FAIL，并返回设置、端口、数据字典、PI、Rate Transition、函数调用发生器和功能识别结果。它不能替代闭环仿真、ERT 构建、SIL/PIL 或目标机最坏执行时间测试。
+审计结果包含 PASS、WARN 和 FAIL，并返回：
+
+- 求解器、基准步长和代码生成目标；
+- 控制器端口、原子属性与采样时间；
+- 数据字典路径与文件名大小写；
+- PI、Rate Transition 和函数调用发生器配置；
+- 仿真模块是否进入生成代码边界；
+- 控制器速率与模型基准步长是否一致。
+
+审计脚本不会保存模型，也不能替代闭环仿真、ERT 构建、SIL/PIL 和目标机最坏执行时间测试。
 
 ## 文件结构
 
 ```text
-speedloop-simulink-style/
+embedded-foc-simulink-codegen/
 ├─ SKILL.md
 ├─ README.md
 ├─ agents/
 │  └─ openai.yaml
+├─ assets/
+│  ├─ foc-controller-architecture.png
+│  ├─ foc-current-loop.png
+│  └─ speedloop-system-overview.png
 ├─ scripts/
 │  └─ audit_embedded_foc_model.m
 └─ references/
@@ -127,15 +167,9 @@ speedloop-simulink-style/
    └─ verification-checklist.md
 ```
 
-## 参考依据与原创说明
-
-本次改良综合分析了用户本地的 STM32G4 Simulink FOC 开发手册 V13.1、本地 Clarke/Park、SVPWM、电流环、启动、速度环、Hall、Luenberger、SMO 与 EKF 模型族，以及旧版 Skill。仓库只保留重新组织和扩展后的通用工程方法、审计规则与原创文档，不上传参考 PDF、截图或原始模型文件。
-
-具体设计依据与相对旧版的改良见 [`references/reference-findings.md`](references/reference-findings.md)。
-
-## 依赖
+## 环境依赖
 
 - MATLAB 与 Simulink；
-- 生成 ERT 代码通常需要 Embedded Coder；
-- 电机/逆变器高保真对象可能需要 Simscape Electrical 或 Motor Control Blockset；
-- SIL/PIL、模型测试和规范检查能力取决于已安装的 MathWorks 产品与目标支持包。
+- ERT 代码生成通常需要 Embedded Coder；
+- 电机与逆变器对象可能需要 Simscape Electrical 或 Motor Control Blockset；
+- SIL/PIL、模型测试和目标支持能力取决于已安装的 MathWorks 产品与 MCU 支持包。
