@@ -1,6 +1,6 @@
 # Embedded FOC Simulink Codegen
 
-面向 PMSM/BLDC 矢量控制的 Simulink 建模与嵌入式代码生成 Skill。它可以指导 Codex 构建、修改和审查 FOC 控制模型，覆盖闭环仿真、控制器分层、多速率调度、启动与转子位置反馈，并将控制算法整理成适合 STM32/ARM Cortex-M 部署的 ERT C 代码组件，建议搭配MATLAB官方的MCP和simulink skill使用（https://github.com/matlab/simulink-agentic-toolkit）。
+面向 PMSM/BLDC 矢量控制的 Simulink 建模与嵌入式代码生成 Skill。它可以指导 Codex 构建、修改和审查 FOC 控制模型，覆盖闭环仿真、控制器分层、多速率调度、启动与转子位置反馈，并将控制算法整理成适合 STM32/ARM Cortex-M 部署的 ERT C 代码组件，建议搭配MATLAB官方的MCP和simulink skill使用：https://github.com/matlab/simulink-agentic-toolkit
 
 ## 模型展示
 
