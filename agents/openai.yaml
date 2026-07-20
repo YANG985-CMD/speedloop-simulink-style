@@ -1,4 +1,0 @@
-interface:
-  display_name: "Embedded FOC Simulink Codegen"
-  short_description: "Build auditable FOC models and embedded C code."
-  default_prompt: "Use $embedded-foc-simulink-codegen to build, revise, or audit a Simulink FOC controller for deterministic embedded code generation."

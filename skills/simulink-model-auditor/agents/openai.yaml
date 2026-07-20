@@ -1,0 +1,4 @@
+interface:
+  display_name: "Simulink Model Auditor"
+  short_description: "Audit any Simulink model with official tools."
+  default_prompt: "Use $simulink-model-auditor to audit this Simulink model without changing it."

@@ -5,6 +5,9 @@ codegen/
 *.autosave
 *.asv
 *.mexw64
+*.mexa64
+test-results/
+artifacts/
 
 # IDE and OS files
 .vscode/

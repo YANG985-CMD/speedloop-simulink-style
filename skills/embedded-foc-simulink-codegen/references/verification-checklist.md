@@ -66,5 +66,6 @@ Record PASS, FAIL, NOT RUN, or NOT APPLICABLE with evidence. Do not convert an u
 - parameter set and data dictionary revision;
 - plots or logged assertions for the scenarios run;
 - code-generation report/build log;
-- audit report from `scripts/audit_embedded_foc_model.m`;
+- generic audit from the companion `simulink-model-auditor` Skill plus its
+  `audit_embedded_foc_model.m` FOC specialization;
 - unresolved warnings, assumptions, and hardware tests still required.

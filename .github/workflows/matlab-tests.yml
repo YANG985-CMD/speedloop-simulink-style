@@ -1,0 +1,40 @@
+name: MATLAB tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up MATLAB and Simulink
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          products: Simulink
+
+      - name: Run utility tests
+        uses: matlab-actions/run-tests@v3
+        with:
+          source-folder: >-
+            skills/simulink-model-auditor/scripts;
+            skills/embedded-foc-simulink-codegen/scripts
+          select-by-folder: tests
+          test-results-junit: test-results/results.xml
+          output-detail: detailed
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-test-results
+          path: test-results/results.xml
+          if-no-files-found: warn

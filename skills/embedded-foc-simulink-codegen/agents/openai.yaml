@@ -1,0 +1,4 @@
+interface:
+  display_name: "Embedded FOC Simulink Codegen"
+  short_description: "Build and deploy FOC models with official tools."
+  default_prompt: "Use $embedded-foc-simulink-codegen to build or revise this FOC Simulink model with official tools and gated deployment."
