@@ -19,6 +19,7 @@ jobs:
       - name: Set up MATLAB and Simulink
         uses: matlab-actions/setup-matlab@v3
         with:
+          release: R2024b
           products: Simulink
 
       - name: Run utility tests
@@ -33,7 +34,7 @@ jobs:
 
       - name: Upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: matlab-test-results
           path: test-results/results.xml

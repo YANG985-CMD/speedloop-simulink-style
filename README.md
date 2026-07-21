@@ -90,7 +90,7 @@ results = runtests('tests');
 assertSuccess(results);
 ```
 
-GitHub Actions 使用 MathWorks 官方 `setup-matlab@v3` 和 `run-tests@v3` 运行 MATLAB 单元测试；CI 不执行真实 Embedded Coder 构建。
+GitHub Actions 使用 MathWorks 官方 `setup-matlab@v3` 和 `run-tests@v3`，以 R2024b 作为稳定测试基线；CI 不执行真实 Embedded Coder 构建。
 
 ## 目录
 
