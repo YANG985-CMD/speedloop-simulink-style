@@ -1,6 +1,6 @@
 # Simulink FOC Skills
 
-这个仓库现在提供两个可以单独安装、也可以一起使用的 Skill：
+这个仓库现在提供两个可以单独安装、也可以一起使用的 Skill，能够和官方的skill和mcp强强联合：
 
 ## 1. `embedded-foc-simulink-codegen`
 
